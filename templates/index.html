@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring des Logs</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitoring des Logs</h1>
+    
+    <form id="logForm" enctype="multipart/form-data">
+        <input type="file" name="logFile" accept=".json,.log,.csv" required />
+        <button type="submit">Injecter Log</button>
+    </form>
+
+    <h2>Liste des Logs</h2>
+    <table id="logsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Message</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Les logs seront insérés ici -->
+        </tbody>
+    </table>
+
+    <script>
+        document.getElementById('logForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            console.log(result);
+            fetchLogs();  // Re-fetch logs after insertion
+        });
+
+        async function fetchLogs() {
+            const response = await fetch('/logs');
+            const data = await response.json();
+            const logsTableBody = document.getElementById('logsTable').getElementsByTagName('tbody')[0];
+            logsTableBody.innerHTML = '';  // Clear the table body
+
+            data.hits.hits.forEach(log => {
+                const row = logsTableBody.insertRow();
+                const idCell = row.insertCell(0);
+                const messageCell = row.insertCell(1);
+                const dateCell = row.insertCell(2);
+
+                idCell.textContent = log._id;  // ID du log
+                messageCell.textContent = log._source.message;  // Message du log
+                dateCell.textContent = new Date(log._source['@timestamp']).toLocaleString();  // Date du log
+            });
+        }
+
+        fetchLogs();  // Initial fetch on page load
+    </script>
+</body>
+</html>

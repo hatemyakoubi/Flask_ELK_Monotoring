@@ -1,0 +1,2 @@
+server.host: "0.0.0.0"                          # Allows Kibana to be accessed from any host
+elasticsearch.hosts: ["http://elasticsearch:9200"]  # Elasticsearch connection

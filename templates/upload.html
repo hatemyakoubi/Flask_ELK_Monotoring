@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upload Logs</title>
+</head>
+<body>
+    <h1>Upload Logs</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <label for="file">Select a log file (CSV, JSON, or .log):</label>
+        <input type="file" name="file" id="file" required>
+        <button type="submit">Upload</button>
+    </form>
+    <a href="/">Back to Home</a>
+</body>
+</html>
