@@ -2,19 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>View Logs</title>
+    <title>Logs</title>
 </head>
 <body>
     <h1>Logs</h1>
-    <form method="GET" action="/logs">
-        <input type="text" name="query" placeholder="Search logs" value="{{ request.args.get('query', '') }}">
-        <button type="submit">Search</button>
-    </form>
-    <ul>
+    <table border="1">
+        <tr>
+            <th>Timestamp</th>
+            <th>Log Message</th>
+        </tr>
         {% for log in logs %}
-        <li>{{ log['_source']['message'] }}</li>
+        <tr>
+            <td>{{ log["@timestamp"] }}</td>
+            <td>{{ log["message"] }}</td>
+        </tr>
         {% endfor %}
-    </ul>
-    <a href="/">Back to Home</a>
+    </table>
 </body>
 </html>

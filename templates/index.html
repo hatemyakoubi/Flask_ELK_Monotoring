@@ -1,80 +1,47 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring des Logs</title>
-    <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f2f2f2;
-        }
-    </style>
+    <title>Log Files List</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css">
 </head>
 <body>
-    <h1>Monitoring des Logs</h1>
-    
-    <form id="logForm" enctype="multipart/form-data">
-        <input type="file" name="logFile" accept=".json,.log,.csv" required />
-        <button type="submit">Injecter Log</button>
-    </form>
+    <div class="container mt-5">
+        <h1>Log Files</h1>
+        
+        <form method="GET" action="{{ url_for('index') }}">
+            <input type="text" name="search" placeholder="Search logs" value="{{ request.args.get('search', '') }}">
+            <button type="submit">Search</button>
+        </form>
+        <!-- Table to display logs -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>File Name</th>
+                    <th>Create At</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ log }}</td>
+                        <td>{{ log | file_creation_time }}</td>
+                        <td>
+                            <!-- View Log button -->
+                            <a href="{{ url_for('view_log', filename=log) }}" class="btn btn-info btn-sm">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-    <h2>Liste des Logs</h2>
-    <table id="logsTable">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Message</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Les logs seront insérés ici -->
-        </tbody>
-    </table>
+        <a href="{{ url_for('add_log') }}" class="btn btn-primary mt-3">Add New Log</a>
+    </div>
 
-    <script>
-        document.getElementById('logForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json();
-            console.log(result);
-            fetchLogs();  // Re-fetch logs after insertion
-        });
-
-        async function fetchLogs() {
-            const response = await fetch('/logs');
-            const data = await response.json();
-            const logsTableBody = document.getElementById('logsTable').getElementsByTagName('tbody')[0];
-            logsTableBody.innerHTML = '';  // Clear the table body
-
-            data.hits.hits.forEach(log => {
-                const row = logsTableBody.insertRow();
-                const idCell = row.insertCell(0);
-                const messageCell = row.insertCell(1);
-                const dateCell = row.insertCell(2);
-
-                idCell.textContent = log._id;  // ID du log
-                messageCell.textContent = log._source.message;  // Message du log
-                dateCell.textContent = new Date(log._source['@timestamp']).toLocaleString();  // Date du log
-            });
-        }
-
-        fetchLogs();  // Initial fetch on page load
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

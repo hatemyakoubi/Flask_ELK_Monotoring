@@ -26,6 +26,7 @@ services:
   logstash:
     image: docker.elastic.co/logstash/logstash:8.3.0
     volumes:
+      - ./logstash/data/logfile:/usr/share/logstash/data/logfile  # Mount the log file directory
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf  # Logstash pipeline configuration
     depends_on:
       - elasticsearch                         # Logstash starts after Elasticsearch
@@ -56,13 +57,17 @@ services:
       - elk
 
   flask:
-    build: ./                    # Dossier contenant le Dockerfile pour Flask
+    build: .  # Directory with Dockerfile for Flask
     ports:
-      - "5000:5000"                           # Maps Flask to port 5000 on the host
+      - "5000:5000"
+    volumes:
+      - ./logstash/data/logfile:/usr/share/logstash/data/logfile  # Mount the log file
     depends_on:
-      - elasticsearch                          # Flask starts after Elasticsearch
+      - elasticsearch
+      - logstash
     networks:
       - elk
+
 
 volumes:
   es-data:
