@@ -9,37 +9,49 @@
 <body>
     <div class="container mt-5">
         <h1>Log Files</h1>
-        
-        <form method="GET" action="{{ url_for('index') }}">
-            <input type="text" name="search" placeholder="Search logs" value="{{ request.args.get('search', '') }}">
-            <button type="submit">Search</button>
-        </form>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <form method="GET" action="{{ url_for('index') }}">
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="Search logs by name or content..." value="{{ search_query }}">
+                        <button class="btn btn-primary" type="submit">Search</button>
+                    </div>
+                </form>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="{{ url_for('add_log') }}" class="btn btn-success">Add New Log</a>
+            </div>
+        </div>
+
         <!-- Table to display logs -->
-        <table class="table table-striped">
+        <table class="table table-bordered">
             <thead>
                 <tr>
                     <th>ID</th>
                     <th>File Name</th>
-                    <th>Create At</th>
-                    <th>Action</th>
+                    <th>Created At</th>
+                    <th>Content Preview</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in logs %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ log }}</td>
-                        <td>{{ log | file_creation_time }}</td>
-                        <td>
-                            <!-- View Log button -->
-                            <a href="{{ url_for('view_log', filename=log) }}" class="btn btn-info btn-sm">View</a>
-                        </td>
-                    </tr>
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ log.name }}</td>
+                    <td>{{ log.created_at }}</td>
+                    <td>{{ log.content }}</td>
+                    <td>
+                        <a href="{{ url_for('view_log', filename=log.name) }}" class="btn btn-info btn-sm">View</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center">No logs found.</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
-
-        <a href="{{ url_for('add_log') }}" class="btn btn-primary mt-3">Add New Log</a>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>

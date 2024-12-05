@@ -10,21 +10,55 @@ es = Elasticsearch("http://elasticsearch:9200")
 # Path where log files are stored inside the container
 LOG_FILE_DIR = '/usr/share/logstash/data/logfile'
 
+# Helper to read file content
+def open_file_content(filename):
+    try:
+        filepath = os.path.join(LOG_FILE_DIR, filename)
+        with open(filepath, 'r', encoding='utf-8') as file:
+            return file.read()
+    except FileNotFoundError:
+        return "File not found"
+
+# Helper to get file creation time
+def get_file_creation_time(filepath):
+    try:
+        timestamp = os.path.getctime(filepath)
+        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return "Unknown"
 
 @app.route('/')
 def index():
-    # Get the list of log files in the directory
-     search_term = request.args.get('search', '').lower()
-    
-    # Get all log files in the log directory
-     logs = [f for f in os.listdir(LOG_FILE_DIR) if f.endswith('.log')]
-    
-    # If there's a search term, filter the logs based on the term
-     if search_term:
-        logs = [log for log in logs if search_term in log.lower()]
+    search_term = request.args.get('search', '').lower()
 
-    # Return the index page with the filtered list of logs
-     return render_template('index.html', logs=logs)
+    try:
+        logs = os.listdir(LOG_FILE_DIR)  # Get all files in the directory
+    except FileNotFoundError:
+        logs = []
+
+    # Only include .log files
+    logs = [log for log in logs if log.endswith('.log')]
+
+    log_details = []
+    for log in logs:
+        log_path = os.path.join(LOG_FILE_DIR, log)
+        try:
+            # Read the file content
+            with open(log_path, 'r', encoding='utf-8') as file:
+                content = file.read().lower()
+
+            # Include log if search term matches filename or content
+            if not search_term or (search_term in log.lower() or search_term in content):
+                log_details.append({
+                    'name': log,
+                    'created_at': get_file_creation_time(log_path),
+                    'content': content[:50] + '...' if len(content) > 50 else content  # Shorten content
+                })
+        except Exception as e:
+            print(f"Error reading file {log_path}: {e}")  # Debugging log
+
+    return render_template('index.html', logs=log_details, search_query=search_term)
+
 
 @app.route('/add_log', methods=['GET', 'POST'])
 def add_log():
