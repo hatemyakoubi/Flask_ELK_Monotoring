@@ -9,29 +9,8 @@ app = Flask(__name__)
 
 # Elasticsearch client
 es = Elasticsearch("http://elasticsearch:9200")
-
 # Path where log files are stored inside the container
-
 LOG_FILE_DIR = '/usr/share/logstash/data/logfile'
-
-# Helper to read file content
-def open_file_content(filename):
-    try:
-        filepath = os.path.join(LOG_FILE_DIR, filename)
-        with open(filepath, 'r', encoding='utf-8') as file:
-            return file.read()
-    except FileNotFoundError:
-        return "File not found"
-
-
-# Helper to get file creation time
-def get_file_creation_time(filepath):
-    try:
-        timestamp = os.path.getctime(filepath)
-        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-    except Exception:
-        return "Unknown"
-
 @app.route('/')
 def index():
     # Get the search query and page number
@@ -42,8 +21,7 @@ def index():
     try:
         # Elasticsearch query
         if search_query:
-            # Determine if the search is for an ID or content
-            if search_query.isalnum() and len(search_query) > 5:  # Heuristic for IDs (adjust as needed)
+            if search_query.isalnum() and len(search_query) > 5:
                 query = {
                     "query": {
                         "ids": {
@@ -54,9 +32,9 @@ def index():
             else:
                 query = {
                     "query": {
-                        "multi_match": {  # Use multi_match for better text searching
+                        "multi_match": {
                             "query": search_query,
-                            "fields": ["message^2", "message.keyword"]  # Boost "message" for relevance
+                            "fields": ["message^2", "message.keyword"]
                         }
                     },
                     "size": 10,
@@ -94,7 +72,6 @@ def index():
         page_range = []
         print(f"Error querying Elasticsearch: {e}")
 
-    # Render template
     return render_template(
         'index.html',
         logs=logs,
@@ -104,35 +81,45 @@ def index():
         page_range=page_range
     )
 
-
 @app.route('/add_log', methods=['GET', 'POST'])
 def add_log():
     if request.method == 'POST':
         message = request.form.get('message')
-        
-        if message:  # Ensure message is not empty
+        uploaded_file = request.files.get('file')
+
+        if uploaded_file:
+            # Save the uploaded file
+            file_path = os.path.join(LOG_FILE_DIR, uploaded_file.filename)
+            uploaded_file.save(file_path)
+            print(f"File uploaded successfully: {file_path}")
+
+            # Log entry for file upload
+            index_name = f"logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
+            log_entry = {
+                "@timestamp": datetime.utcnow().isoformat() + "Z",
+                "message": f"Uploaded file: {uploaded_file.filename}",
+                "file_path": file_path  # Optional: Store file path or additional info
+            }
+            es.index(index=index_name, body=log_entry)
+
+            return redirect(url_for('index'))
+        elif message:  # Handle simple log messages
             try:
-                # Generate the index name dynamically based on the current date
                 index_name = f"logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
-                
                 log_entry = {
-                    "@timestamp": datetime.utcnow().isoformat() + "Z",  # Correct timestamp format
+                    "@timestamp": datetime.utcnow().isoformat() + "Z",
                     "message": message
                 }
-                
-                # Index the log in Elasticsearch with the dynamically generated index name
                 es.index(index=index_name, body=log_entry)
                 print("Log added successfully")
-                
-                return redirect(url_for('index'))  # Adjust based on your view function
+                return redirect(url_for('index'))
             except Exception as e:
                 print(f"Error adding log: {e}")
                 return "Error adding log.", 500
         else:
-            return "Message is required.", 400
+            return "Message or file is required.", 400
 
-    # For GET request, render the add log form
-    return render_template('add_log.html')  # Adjust the template name as per your app
+    return render_template('add_log.html')
 
 @app.route('/view_log/<log_id>')
 def view_log(log_id):

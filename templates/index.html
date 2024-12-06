@@ -37,11 +37,18 @@
                 {% for log in logs %}
                 <tr>
                     <td>{{ log['id'] }}</td>
-                    <td>{{ log['content'] }}</td>
+                    <td>
+                        {% if 'Uploaded file:' in log['content'] %}
+                            <strong>{{ log['content'] }}</strong>
+                            <p>Log file uploaded: <a href="{{ log['file_path'] }}" target="_blank">{{ log['file_path'] }}</a></p>
+                        {% else %}
+                            {{ log['content'] }}
+                        {% endif %}
+                    </td>
                     <td>{{ log['formatted_date'] }}</td>
                     <td>
                         <a href="{{ url_for('view_log', log_id=log['id']) }}" class="btn btn-info btn-sm">View</a>
-                    </td>                 
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
