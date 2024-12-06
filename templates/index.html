@@ -8,12 +8,12 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1>Log Files</h1>
+        <h1>Logs Monotoring</h1>
         <div class="row mb-3">
             <div class="col-md-6">
                 <form method="GET" action="{{ url_for('index') }}">
                     <div class="input-group">
-                        <input type="text" name="search" class="form-control" placeholder="Search logs by name or content..." value="{{ search_query }}">
+                        <input type="text" name="search_query" class="form-control" placeholder="Search logs by content..." value="{{ search_query }}">
                         <button class="btn btn-primary" type="submit">Search</button>
                     </div>
                 </form>
@@ -28,30 +28,55 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>File Name</th>
-                    <th>Created At</th>
                     <th>Content Preview</th>
+                    <th>Created At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in logs %}
                 <tr>
-                    <td>{{ loop.index }}</td>
-                    <td>{{ log.name }}</td>
-                    <td>{{ log.created_at }}</td>
-                    <td>{{ log.content }}</td>
+                    <td>{{ log['id'] }}</td>
+                    <td>{{ log['content'] }}</td>
+                    <td>{{ log['formatted_date'] }}</td>
                     <td>
-                        <a href="{{ url_for('view_log', filename=log.name) }}" class="btn btn-info btn-sm">View</a>
-                    </td>
+                        <a href="{{ url_for('view_log', log_id=log['id']) }}" class="btn btn-info btn-sm">View</a>
+                    </td>                 
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center">No logs found.</td>
+                    <td colspan="4" class="text-center">No logs found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- Pagination controls -->
+        <div class="pagination">
+            {% if page > 1 %}
+                <a href="{{ url_for('index', search_query=search_query, page=page-1) }}" class="btn btn-primary" style="margin-right: 5px;">Previous</a>
+            {% endif %}
+        
+            {% if page > 2 %}
+                <a href="{{ url_for('index', search_query=search_query, page=1) }}" class="btn btn-primary" style="margin-right: 5px;">1</a>
+                <span>...</span>
+            {% endif %}
+        
+            {% for p in page_range %}
+                <a href="{{ url_for('index', search_query=search_query, page=p) }}" 
+                   class="btn btn-primary {% if p == page %}active{% endif %}" 
+                   style="margin-right: 5px;">{{ p }}</a>
+            {% endfor %}
+        
+            {% if page < total_pages-1 %}
+                <span>...</span>
+                <a href="{{ url_for('index', search_query=search_query, page=total_pages) }}" class="btn btn-primary" style="margin-right: 5px;">{{ total_pages }}</a>
+            {% endif %}
+        
+            {% if page < total_pages %}
+                <a href="{{ url_for('index', search_query=search_query, page=page+1) }}" class="btn btn-primary" style="margin-right: 5px;">Next</a>
+            {% endif %}
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>

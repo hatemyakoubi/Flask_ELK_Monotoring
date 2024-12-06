@@ -1,13 +1,17 @@
 import os
-from flask import Flask, render_template, request, jsonify,redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from datetime import datetime
-import time
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, NotFoundError
+from math import ceil
+import json
 
 app = Flask(__name__)
 
+# Elasticsearch client
 es = Elasticsearch("http://elasticsearch:9200")
+
 # Path where log files are stored inside the container
+
 LOG_FILE_DIR = '/usr/share/logstash/data/logfile'
 
 # Helper to read file content
@@ -19,6 +23,7 @@ def open_file_content(filename):
     except FileNotFoundError:
         return "File not found"
 
+
 # Helper to get file creation time
 def get_file_creation_time(filepath):
     try:
@@ -29,104 +34,124 @@ def get_file_creation_time(filepath):
 
 @app.route('/')
 def index():
-    search_term = request.args.get('search', '').lower()
+    # Get the search query and page number
+    search_query = request.args.get('search_query', '')
+    page = int(request.args.get('page', 1))
+    page = max(page, 1)  # Ensure valid page number
 
     try:
-        logs = os.listdir(LOG_FILE_DIR)  # Get all files in the directory
-    except FileNotFoundError:
+        # Elasticsearch query
+        if search_query:
+            # Determine if the search is for an ID or content
+            if search_query.isalnum() and len(search_query) > 5:  # Heuristic for IDs (adjust as needed)
+                query = {
+                    "query": {
+                        "ids": {
+                            "values": [search_query]
+                        }
+                    }
+                }
+            else:
+                query = {
+                    "query": {
+                        "multi_match": {  # Use multi_match for better text searching
+                            "query": search_query,
+                            "fields": ["message^2", "message.keyword"]  # Boost "message" for relevance
+                        }
+                    },
+                    "size": 10,
+                    "from": (page - 1) * 10,
+                    "sort": [{"@timestamp": {"order": "desc"}}]
+                }
+        else:
+            query = {
+                "query": {"match_all": {}},
+                "size": 10,
+                "from": (page - 1) * 10,
+                "sort": [{"@timestamp": {"order": "desc"}}]
+            }
+
+        # Query Elasticsearch
+        response = es.search(index="logs-*,logstash-logs-*", body=query)
         logs = []
+        for hit in response['hits']['hits']:
+            log = hit['_source']
+            created_date = log.get('@timestamp', '')
+            if created_date:
+                log['formatted_date'] = datetime.strptime(created_date, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y %H:%M:%S")
+            log['id'] = hit['_id']
+            log['content'] = log.get('message', 'No content available')
+            logs.append(log)
 
-    # Only include .log files
-    logs = [log for log in logs if log.endswith('.log')]
+        total_logs = response['hits']['total']['value']
+        total_pages = max(1, ceil(total_logs / 10))
+        page = min(page, total_pages)
+        page_range = list(range(max(1, page - 1), min(total_pages + 1, page + 2)))
 
-    log_details = []
-    for log in logs:
-        log_path = os.path.join(LOG_FILE_DIR, log)
-        try:
-            # Read the file content
-            with open(log_path, 'r', encoding='utf-8') as file:
-                content = file.read().lower()
+    except Exception as e:
+        logs = []
+        total_pages = 1
+        page_range = []
+        print(f"Error querying Elasticsearch: {e}")
 
-            # Include log if search term matches filename or content
-            if not search_term or (search_term in log.lower() or search_term in content):
-                log_details.append({
-                    'name': log,
-                    'created_at': get_file_creation_time(log_path),
-                    'content': content[:50] + '...' if len(content) > 50 else content  # Shorten content
-                })
-        except Exception as e:
-            print(f"Error reading file {log_path}: {e}")  # Debugging log
-
-    return render_template('index.html', logs=log_details, search_query=search_term)
+    # Render template
+    return render_template(
+        'index.html',
+        logs=logs,
+        search_query=search_query,
+        page=page,
+        total_pages=total_pages,
+        page_range=page_range
+    )
 
 
 @app.route('/add_log', methods=['GET', 'POST'])
 def add_log():
     if request.method == 'POST':
-        log_message = request.form['log_message']  # Get log message from the form
-        log_filename = f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-        log_file_path = os.path.join(LOG_FILE_DIR, log_filename)
+        message = request.form.get('message')
+        
+        if message:  # Ensure message is not empty
+            try:
+                # Generate the index name dynamically based on the current date
+                index_name = f"logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
+                
+                log_entry = {
+                    "@timestamp": datetime.utcnow().isoformat() + "Z",  # Correct timestamp format
+                    "message": message
+                }
+                
+                # Index the log in Elasticsearch with the dynamically generated index name
+                es.index(index=index_name, body=log_entry)
+                print("Log added successfully")
+                
+                return redirect(url_for('index'))  # Adjust based on your view function
+            except Exception as e:
+                print(f"Error adding log: {e}")
+                return "Error adding log.", 500
+        else:
+            return "Message is required.", 400
 
-        # Write the log message to a new log file
-        with open(log_file_path, 'w') as log_file:
-            log_file.write(log_message)
-        return redirect(url_for('index'))  # Redirect to the index page to see the updated list
-    return render_template('add_log.html')  # If GET request, show the form
+    # For GET request, render the add log form
+    return render_template('add_log.html')  # Adjust the template name as per your app
 
+@app.route('/view_log/<log_id>')
+def view_log(log_id):
+    try:
+        print(f"Attempting to retrieve document with ID: {log_id}")
+        # Elasticsearch query to fetch document by ID
+        response = es.get(index="logs-*,logstash-logs-*", id=log_id)
+        print(f"Elasticsearch response: {response}")
 
-@app.route('/search_logs', methods=['POST'])
-def search_logs():
-    search_query = request.form['search_query']
-    
-    # Search in Elasticsearch
-    response = es.search(index="logs", body={
-        "query": {
-            "match": {
-                "log_message": search_query
-            }
-        }
-    })
+        log_content = response['_source']
+        return render_template('view_log.html', log_id=log_id, content=log_content)
 
-    # Extract hits (log entries) from the Elasticsearch response
-    logs = [hit["_source"] for hit in response['hits']['hits']]
+    except NotFoundError:
+        print(f"Document with ID {log_id} not found in Elasticsearch.")
+        return "Log not found!", 404
 
-    return render_template('index.html', logs=logs, log_files=os.listdir(LOG_FILE_DIR))
-
-# Custom filter to convert file size to human-readable format
-@app.template_filter('filesize')
-def filesize_filter(value):
-    size = os.path.getsize(os.path.join(LOG_FILE_DIR, value))
-    if size < 1024:
-        return f"{size} bytes"
-    elif size < 1048576:
-        return f"{size / 1024:.2f} KB"
-    elif size < 1073741824:
-        return f"{size / 1048576:.2f} MB"
-    else:
-        return f"{size / 1073741824:.2f} GB"
-
-@app.route('/view_log/<filename>')
-def view_log(filename):
-    log_filepath = os.path.join(LOG_FILE_DIR, filename)
-
-    # Check if the file exists
-    if os.path.exists(log_filepath):
-        with open(log_filepath, 'r') as log_file:
-            log_content = log_file.read()
-
-        # Return the view_log template with both the filename and content
-        return render_template('view_log.html', filename=filename, content=log_content)
-    else:
-        return "Log file not found!", 404
-
-
-@app.template_filter('file_creation_time')
-def file_creation_time(filename):
-    log_filepath = os.path.join(LOG_FILE_DIR, filename)
-    if os.path.exists(log_filepath):
-        timestamp = os.path.getctime(log_filepath)  # Get creation time in seconds
-        return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-    return "Unknown"
+    except Exception as e:
+        print(f"Unexpected error occurred while fetching log: {e}")
+        return "An error occurred while fetching the log!", 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

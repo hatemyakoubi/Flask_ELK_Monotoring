@@ -3,22 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Log - {{ filename }}</title>
+    <title>View Log</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Display the log file name -->
-        <h1>Viewing Log File: <strong>{{ filename }}</strong></h1>
-        
-        <!-- Display the content of the log file -->
-        <h3>Content:</h3>
-        <pre>{{ content }}</pre>
-        
-        <!-- Button to return to the log list -->
-        <a href="{{ url_for('index') }}" class="btn btn-primary mt-3">Back to Logs</a>
+    <div class="container mt-5">
+        <h1>View Log</h1>
+        <p><strong>Log ID:</strong> {{ log_id }}</p>
+        <pre>{{ content | safe }}</pre>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Logs</a>
     </div>
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

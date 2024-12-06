@@ -1,78 +1,58 @@
+version: '3.8'
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.3.0
     environment:
-      - discovery.type=single-node             # Single-node cluster setup
-      - cluster.name=docker-cluster            # Name of the Elasticsearch cluster
-      - bootstrap.memory_lock=true             # Prevents Elasticsearch from swapping memory
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"           # Sets heap memory to 4GB
-      - xpack.security.enabled=false           # Disables X-Pack security for simplicity
-    ulimits:
-      memlock:
-        soft: -1                               # Unlimited memory lock (soft limit)
-        hard: -1                               # Unlimited memory lock (hard limit)
+      - discovery.type=single-node
+      - xpack.security.enabled=false
     ports:
-      - "9200:9200"                            # Maps Elasticsearch to port 9200 on the host
+      - "9200:9200"
     volumes:
-      - es-data:/usr/share/elasticsearch/data  # Persistent volume for data storage
-    deploy:
-      resources:
-        limits:
-          cpus: "5"                            # Limit to 5 CPU cores
-          memory: "8g"                         # Limit memory usage to 8GB
+      - es-data:/usr/share/elasticsearch/data
     networks:
       - elk
 
   logstash:
     image: docker.elastic.co/logstash/logstash:8.3.0
     volumes:
-      - ./logstash/data/logfile:/usr/share/logstash/data/logfile  # Mount the log file directory
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf  # Logstash pipeline configuration
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf  # Logstash pipeline config
+      - ./logs:/usr/share/logstash/data/logfile  # Logs directory
     depends_on:
-      - elasticsearch                         # Logstash starts after Elasticsearch
-    deploy:
-      resources:
-        limits:
-          cpus: "5"                           # Limit to 5 CPU cores
-          memory: "8g"                        # Limit memory usage to 8GB
+      - elasticsearch
+    ports:
+      - "5044:5044"
+      - "9600:9600"
     networks:
       - elk
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.3.0
     ports:
-      - "5601:5601"                           # Maps Kibana to port 5601 on the host
+      - "5601:5601"
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200  # Connect Kibana to Elasticsearch
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
-      - elasticsearch                         # Kibana starts after Elasticsearch
-    volumes:
-      - ./kibana.yml:/usr/share/kibana/config/kibana.yml  # Custom Kibana configuration
-    deploy:
-      resources:
-        limits:
-          cpus: "5"                           # Limit to 5 CPU cores
-          memory: "8g"                        # Limit memory usage to 8GB
+      - elasticsearch
     networks:
       - elk
 
   flask:
-    build: .  # Directory with Dockerfile for Flask
+    build:
+      context: .
     ports:
       - "5000:5000"
     volumes:
-      - ./logstash/data/logfile:/usr/share/logstash/data/logfile  # Mount the log file
+      - ./logs:/usr/share/logstash/data/logfile
     depends_on:
       - elasticsearch
       - logstash
     networks:
       - elk
 
-
 volumes:
   es-data:
-    driver: local                             # Local volume for Elasticsearch data persistence
+    driver: local
 
 networks:
   elk:
-    driver: bridge                            # Bridge network for container communication
+    driver: bridge
