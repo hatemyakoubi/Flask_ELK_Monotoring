@@ -21,11 +21,11 @@ def index():
     try:
         # Elasticsearch query
         if search_query:
-            if search_query.isalnum() and len(search_query) > 5:
+            if search_query.isalnum() :
                 query = {
                     "query": {
-                        "ids": {
-                            "values": [search_query]
+                          "term": {
+                            "_id": search_query  # Search by document ID
                         }
                     }
                 }
