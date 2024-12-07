@@ -13,33 +13,19 @@ es = Elasticsearch("http://elasticsearch:9200")
 LOG_FILE_DIR = '/usr/share/logstash/data/logfile'
 @app.route('/')
 def index():
-    # Get the search query and page number
     search_query = request.args.get('search_query', '')
     page = int(request.args.get('page', 1))
-    page = max(page, 1)  # Ensure valid page number
+    page = max(page, 1)
 
     try:
-        # Elasticsearch query
         if search_query:
-            if search_query.isalnum() :
+            if search_query.isalnum():
                 query = {
                     "query": {
-                          "term": {
-                            "_id": search_query  # Search by document ID
+                        "term": {
+                            "_id": search_query
                         }
                     }
-                }
-            else:
-                query = {
-                    "query": {
-                        "multi_match": {
-                            "query": search_query,
-                            "fields": ["message^2", "message.keyword"]
-                        }
-                    },
-                    "size": 10,
-                    "from": (page - 1) * 10,
-                    "sort": [{"@timestamp": {"order": "desc"}}]
                 }
         else:
             query = {
@@ -49,8 +35,7 @@ def index():
                 "sort": [{"@timestamp": {"order": "desc"}}]
             }
 
-        # Query Elasticsearch
-        response = es.search(index="logs-*,logstash-logs-*", body=query)
+        response = es.search(index="logstash-logs-*", body=query)
         logs = []
         for hit in response['hits']['hits']:
             log = hit['_source']
@@ -59,6 +44,10 @@ def index():
                 log['formatted_date'] = datetime.strptime(created_date, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d-%m-%Y %H:%M:%S")
             log['id'] = hit['_id']
             log['content'] = log.get('message', 'No content available')
+            log['version'] = log.get('@version', 'N/A')
+            log['event_original'] = log.get('event.original', 'N/A')
+            log['host_name'] = log.get('host.name', 'N/A')
+            log['log_file_path'] = log.get('log.file.path', 'N/A')
             logs.append(log)
 
         total_logs = response['hits']['total']['value']
@@ -88,29 +77,30 @@ def add_log():
         uploaded_file = request.files.get('file')
 
         if uploaded_file:
-            # Save the uploaded file
+            # Read the entire file content
+            file_content = uploaded_file.read().decode('utf-8')  # Read and decode the file content
+            
+            # Save the uploaded file (optional)
             file_path = os.path.join(LOG_FILE_DIR, uploaded_file.filename)
             uploaded_file.save(file_path)
             print(f"File uploaded successfully: {file_path}")
 
             # Log entry for file upload
-            index_name = f"logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
             log_entry = {
                 "@timestamp": datetime.utcnow().isoformat() + "Z",
-                "message": f"Uploaded file: {uploaded_file.filename}",
+                "message": file_content,  # Store the entire file content as one log entry
                 "file_path": file_path  # Optional: Store file path or additional info
             }
-            es.index(index=index_name, body=log_entry)
+            es.index(index="logstash-logs", body=log_entry)  # Use a consistent index
 
             return redirect(url_for('index'))
         elif message:  # Handle simple log messages
             try:
-                index_name = f"logs-{datetime.utcnow().strftime('%Y.%m.%d')}"
                 log_entry = {
                     "@timestamp": datetime.utcnow().isoformat() + "Z",
                     "message": message
                 }
-                es.index(index=index_name, body=log_entry)
+                es.index(index="logstash-logs", body=log_entry)
                 print("Log added successfully")
                 return redirect(url_for('index'))
             except Exception as e:

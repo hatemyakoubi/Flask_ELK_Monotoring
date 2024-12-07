@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1>Logs Monotoring</h1>
+        <h1>Logs Monitoring</h1>
         <div class="row mb-3">
             <div class="col-md-6">
                 <form method="GET" action="{{ url_for('index') }}">
@@ -38,12 +38,12 @@
                 <tr>
                     <td>{{ log['id'] }}</td>
                     <td>
-                        {% if 'Uploaded file:' in log['content'] %}
-                            <strong>{{ log['content'] }}</strong>
-                            <p>Log file uploaded: <a href="{{ log['file_path'] }}" target="_blank">{{ log['file_path'] }}</a></p>
-                        {% else %}
-                            {{ log['content'] }}
-                        {% endif %}
+                        <strong>@timestamp:</strong> {{ log['formatted_date'] }}<br>
+                        <strong>@version:</strong> {{ log['version'] }}<br>
+                        <strong>event.original:</strong> {{ log['event_original'] }}<br>
+                        <strong>host.name:</strong> {{ log['host_name'] }}<br>
+                        <strong>log.file.path:</strong> {{ log['log_file_path'] }}<br>
+                        <strong>message:</strong> {{ log['content'] }}
                     </td>
                     <td>{{ log['formatted_date'] }}</td>
                     <td>
