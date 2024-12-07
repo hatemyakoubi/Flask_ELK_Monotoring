@@ -11,10 +11,6 @@
         <h1>Add a New Log</h1>
         <form method="POST" action="{{ url_for('add_log') }}" enctype="multipart/form-data">
             <div class="mb-3">
-                <label for="message" class="form-label">Log Message</label>
-                <textarea id="message" name="message" class="form-control" rows="3"></textarea>
-            </div>
-            <div class="mb-3">
                 <label for="file" class="form-label">Upload Log File</label>
                 <input type="file" id="file" name="file" class="form-control" accept=".log,.json,.csv">
             </div>

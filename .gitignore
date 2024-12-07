@@ -1,0 +1,8 @@
+#Ignore logs directory
+logs/
+
+#Ignore logstash directory
+logstash/
+
+#Ignore uploads directory
+uploads/
