@@ -1,13 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Log</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css">
-</head>
-<body>
-    <div class="container mt-5">
+{% extends "layout.html" %}
+
+{% block title %}Add Log{% endblock %}
+
+{% block content %}
         <h1>Add a New Log</h1>
         <form method="POST" action="{{ url_for('add_log') }}" enctype="multipart/form-data">
             <div class="mb-3">
@@ -16,8 +11,4 @@
             </div>
             <button type="submit" class="btn btn-success">Add Log</button>
         </form>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% endblock %}

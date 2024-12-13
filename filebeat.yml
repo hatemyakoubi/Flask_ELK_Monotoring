@@ -1,0 +1,23 @@
+filebeat.inputs:
+  - type: filestream
+    id: default-filestream
+    enabled: true
+    paths:
+      - "/var/log/logfile/*.log"
+      - "/var/log/logfile/*.csv"
+      - "/var/log/logfile/*.json"
+    scan_frequency: 10s
+    fields:
+      log_source: "logstash-logs-*"
+
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        environment: development
+
+setup.kibana:
+  host: http://localhost:5601
+
+output.logstash:
+  hosts: ["logstash:5044"]

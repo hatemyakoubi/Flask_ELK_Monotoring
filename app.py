@@ -9,8 +9,10 @@ app = Flask(__name__)
 
 # Elasticsearch client
 es = Elasticsearch("http://elasticsearch:9200")
+
 # Path where log files are stored inside the container
 LOG_FILE_DIR = '/usr/share/logstash/data/logfile'
+
 @app.route('/')
 def index():
     search_query = request.args.get('search_query', '')
@@ -27,6 +29,14 @@ def index():
                         }
                     }
                 }
+            else:
+                query = {
+                    "query": {"match_all": {}},
+                    "size": 10,
+                    "from": (page - 1) * 10,
+                    "sort": [{"@timestamp": {"order": "desc"}}]
+                }
+
         else:
             query = {
                 "query": {"match_all": {}},
@@ -70,6 +80,7 @@ def index():
         page_range=page_range
     )
 
+
 @app.route('/add_log', methods=['GET', 'POST'])
 def add_log():
     if request.method == 'POST':
@@ -79,7 +90,7 @@ def add_log():
         if uploaded_file:
             # Read the entire file content
             file_content = uploaded_file.read().decode('utf-8')  # Read and decode the file content
-            
+
             # Save the uploaded file (optional)
             file_path = os.path.join(LOG_FILE_DIR, uploaded_file.filename)
             uploaded_file.save(file_path)
@@ -91,44 +102,50 @@ def add_log():
                 "message": file_content,  # Store the entire file content as one log entry
                 "file_path": file_path  # Optional: Store file path or additional info
             }
-            es.index(index="logstash-logs", body=log_entry)  # Use a consistent index
+            try:
+                es.index(index="logstash-logs-" + datetime.utcnow().strftime("%Y.%m.%d"), body=log_entry)
+                return redirect(url_for('index'))
+            except Exception as e:
+                print(f"Error adding log: {e}")
+                return jsonify({"error": "Error adding log", "message": str(e)}), 500
 
-            return redirect(url_for('index'))
         elif message:  # Handle simple log messages
             try:
                 log_entry = {
                     "@timestamp": datetime.utcnow().isoformat() + "Z",
                     "message": message
                 }
-                es.index(index="logstash-logs", body=log_entry)
+                es.index(index="logstash-logs-" + datetime.utcnow().strftime("%Y.%m.%d"), body=log_entry)
                 print("Log added successfully")
                 return redirect(url_for('index'))
             except Exception as e:
                 print(f"Error adding log: {e}")
-                return "Error adding log.", 500
+                return jsonify({"error": "Error adding log", "message": str(e)}), 500
+
         else:
             return "Message or file is required.", 400
 
     return render_template('add_log.html')
 
+
 @app.route('/view_log/<log_id>')
 def view_log(log_id):
     try:
-        print(f"Attempting to retrieve document with ID: {log_id}")
-        # Elasticsearch query to fetch document by ID
-        response = es.get(index="logs-*,logstash-logs-*", id=log_id)
-        print(f"Elasticsearch response: {response}")
-
+        response = es.get(index="logstash-logs-*", id=log_id)
         log_content = response['_source']
         return render_template('view_log.html', log_id=log_id, content=log_content)
 
     except NotFoundError:
-        print(f"Document with ID {log_id} not found in Elasticsearch.")
         return "Log not found!", 404
 
     except Exception as e:
-        print(f"Unexpected error occurred while fetching log: {e}")
-        return "An error occurred while fetching the log!", 500
+        return f"An error occurred: {e}", 500
+
+
+@app.route('/statistics')
+def statistics():
+    return render_template('statistics.html')
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
